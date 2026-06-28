@@ -1,9 +1,10 @@
 numpy==1.26.4
-opencv-contrib-python==4.10.0.84
+opencv-python-headless
+opencv-contrib-python-headless
 mediapipe==0.10.14
 fastapi
 uvicorn[standard]
 websockets
 keras>=3.3.0
-jax==0.4.26
-jaxlib==0.4.26
+jax>=0.4.30
+jaxlib>=0.4.30
