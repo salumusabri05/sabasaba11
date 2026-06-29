@@ -93,6 +93,7 @@ class SignPredictor:
         # Configure Keras to use JAX backend (fast and lightweight CPU execution)
         import os
         os.environ['KERAS_BACKEND'] = 'jax'
+        os.environ['JAX_PLATFORMS'] = 'cpu'
         import keras
         self.model = keras.models.load_model(model_path)
         self.classes = ['ALAMA', 'ASUBUHI', 'HABARI', 'JINA', 'JIONI', 'KUJITAMBULISHA', 'LANGU', 'LUGHA', 'MCHANA', 'SHIKAMOO', 'YAKO']
