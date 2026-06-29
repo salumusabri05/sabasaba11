@@ -214,19 +214,28 @@ async def websocket_endpoint(ws: WebSocket):
                 features, hands_detected = predictor.extract_features(frame, meta)
 
                 if hands_detected:
+                    if len(landmark_buffer) == 0:
+                        print("[WS] Hand detected. Starting gesture sequence accumulation...")
                     no_hand_counter = 0
                     landmark_buffer.append(features)
                     
+                    if len(landmark_buffer) % 10 == 0:
+                        print(f"[WS] Accumulating gesture frames: {len(landmark_buffer)}")
+                    
                     if len(landmark_buffer) >= 90:
-                        # Predict immediately on max buffer size
+                        print("[WS] Buffer hit maximum sequence length (90 frames). Running prediction immediately...")
                         pred_probs = predictor.predict_sequence(landmark_buffer)
                         top_indices = np.argsort(pred_probs)[::-1]
                         best_idx = top_indices[0]
                         best_prob = float(pred_probs[best_idx])
                         best_word = predictor.classes[best_idx]
                         
+                        print(f"[WS] Prediction result: word='{best_word}', probability={best_prob:.4f} (threshold={threshold})")
                         if best_prob >= threshold:
                             text_builder.add_word(best_word)
+                            print(f"[WS] Prediction ACCEPTED. Current sentence: '{text_builder.get_full_text()}'")
+                        else:
+                            print("[WS] Prediction REJECTED (below threshold).")
                             
                         await ws.send_text(json.dumps({
                             "type": "prediction",
@@ -252,15 +261,19 @@ async def websocket_endpoint(ws: WebSocket):
                     no_hand_counter += 1
                     if no_hand_counter >= 8:
                         if len(landmark_buffer) >= 10:
-                            # User completed the sign gesture! Predict now.
+                            print(f"[WS] Hand dropped. Running prediction on sequence of length {len(landmark_buffer)} frames...")
                             pred_probs = predictor.predict_sequence(landmark_buffer)
                             top_indices = np.argsort(pred_probs)[::-1]
                             best_idx = top_indices[0]
                             best_prob = float(pred_probs[best_idx])
                             best_word = predictor.classes[best_idx]
                             
+                            print(f"[WS] Prediction result: word='{best_word}', probability={best_prob:.4f} (threshold={threshold})")
                             if best_prob >= threshold:
                                 text_builder.add_word(best_word)
+                                print(f"[WS] Prediction ACCEPTED. Current sentence: '{text_builder.get_full_text()}'")
+                            else:
+                                print("[WS] Prediction REJECTED (below threshold).")
                                 
                             await ws.send_text(json.dumps({
                                 "type": "prediction",
@@ -271,8 +284,8 @@ async def websocket_endpoint(ws: WebSocket):
                                 "sentence": text_builder.get_full_text(),
                                 "timestamp": time.time(),
                             }))
-                        else:
-                            # No active sequence or too short
+                        elif len(landmark_buffer) > 0:
+                            print(f"[WS] Gesture sequence too short ({len(landmark_buffer)} frames). Resetting buffer.")
                             await ws.send_text(json.dumps({
                                 "type": "prediction",
                                 "letter": "",
@@ -300,6 +313,7 @@ async def websocket_endpoint(ws: WebSocket):
             # ---------- Command message ----------
             elif msg.get("type") == "command":
                 cmd = msg.get("command")
+                print(f"[WS] Received command: '{cmd}'")
                 if cmd == "clear":
                     text_builder.clear()
                 elif cmd == "delete_letter":
@@ -310,6 +324,7 @@ async def websocket_endpoint(ws: WebSocket):
                     text_to_speak = text_builder.get_full_text()
                     audio_b64 = None
                     if synthesizer and text_to_speak.strip():
+                        print(f"[WS] Generating Azure TTS voice for text: '{text_to_speak}'")
                         try:
                             # Run synthesis in executor to avoid blocking the event loop
                             loop = asyncio.get_event_loop()
@@ -319,6 +334,7 @@ async def websocket_endpoint(ws: WebSocket):
                             )
                             if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
                                 audio_b64 = base64.b64encode(result.audio_data).decode("utf-8")
+                                print("[WS] Azure TTS audio generation completed successfully.")
                             else:
                                 print(f"Azure Speech synthesis failed: {result.reason}")
                         except Exception as ex:
@@ -331,6 +347,7 @@ async def websocket_endpoint(ws: WebSocket):
                     }))
                     text_builder.clear()
 
+                print(f"[WS] Current sentence after command: '{text_builder.get_full_text()}'")
                 await ws.send_text(json.dumps({
                     "type": "state_update",
                     "word": "",
