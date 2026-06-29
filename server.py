@@ -215,14 +215,64 @@ async def websocket_endpoint(ws: WebSocket):
 
                 if hands_detected:
                     no_hand_counter = 0
-                    status = "Signing Detected"
+                    landmark_buffer.append(features)
+                    
+                    if len(landmark_buffer) >= 90:
+                        # Predict immediately on max buffer size
+                        pred_probs = predictor.predict_sequence(landmark_buffer)
+                        top_indices = np.argsort(pred_probs)[::-1]
+                        best_idx = top_indices[0]
+                        best_prob = float(pred_probs[best_idx])
+                        best_word = predictor.classes[best_idx]
+                        
+                        if best_prob >= threshold:
+                            text_builder.add_word(best_word)
+                            
+                        await ws.send_text(json.dumps({
+                            "type": "prediction",
+                            "letter": best_word,
+                            "confidence": best_prob,
+                            "hand_detected": True,
+                            "word": best_word,
+                            "sentence": text_builder.get_full_text(),
+                            "timestamp": time.time(),
+                        }))
+                        landmark_buffer = [] # Reset for next sign
+                    else:
+                        await ws.send_text(json.dumps({
+                            "type": "prediction",
+                            "letter": "",
+                            "confidence": 0.0,
+                            "hand_detected": True,
+                            "word": f"Signing... ({len(landmark_buffer)} frames)",
+                            "sentence": text_builder.get_full_text(),
+                            "timestamp": time.time(),
+                        }))
                 else:
                     no_hand_counter += 1
-                    if no_hand_counter > 15:
-                        status = "Ready - No Signer Detected"
-                        if len(landmark_buffer) > 0:
-                            landmark_buffer = []
-                            last_prediction = ""
+                    if no_hand_counter >= 8:
+                        if len(landmark_buffer) >= 10:
+                            # User completed the sign gesture! Predict now.
+                            pred_probs = predictor.predict_sequence(landmark_buffer)
+                            top_indices = np.argsort(pred_probs)[::-1]
+                            best_idx = top_indices[0]
+                            best_prob = float(pred_probs[best_idx])
+                            best_word = predictor.classes[best_idx]
+                            
+                            if best_prob >= threshold:
+                                text_builder.add_word(best_word)
+                                
+                            await ws.send_text(json.dumps({
+                                "type": "prediction",
+                                "letter": best_word,
+                                "confidence": best_prob,
+                                "hand_detected": False,
+                                "word": best_word,
+                                "sentence": text_builder.get_full_text(),
+                                "timestamp": time.time(),
+                            }))
+                        else:
+                            # No active sequence or too short
                             await ws.send_text(json.dumps({
                                 "type": "prediction",
                                 "letter": "",
@@ -232,63 +282,20 @@ async def websocket_endpoint(ws: WebSocket):
                                 "sentence": text_builder.get_full_text(),
                                 "timestamp": time.time(),
                             }))
-                            continue
-
-                if hands_detected or len(landmark_buffer) > 0:
-                    landmark_buffer.append(features)
-                    if len(landmark_buffer) > 90:
-                        landmark_buffer.pop(0)
-
-                    # When the buffer reaches 90 frames, perform sliding window prediction
-                    if len(landmark_buffer) == 90:
-                        if prediction_cooldown > 0:
-                            prediction_cooldown -= 1
-                            # Send buffering status
-                            await ws.send_text(json.dumps({
-                                "type": "prediction",
-                                "letter": last_prediction,
-                                "confidence": 1.0,
-                                "hand_detected": hands_detected,
-                                "word": last_prediction,
-                                "sentence": text_builder.get_full_text(),
-                                "timestamp": time.time(),
-                            }))
-                        else:
-                            # Run prediction on sequence buffer
-                            pred_probs = predictor.predict_sequence(landmark_buffer)
-                            top_indices = np.argsort(pred_probs)[::-1]
-                            
-                            best_idx = top_indices[0]
-                            best_prob = float(pred_probs[best_idx])
-                            best_word = predictor.classes[best_idx]
-
-                            if best_prob >= threshold:
-                                if best_word != last_prediction:
-                                    # Append the newly detected word
-                                    text_builder.add_word(best_word)
-                                    last_prediction = best_word
-                                    prediction_cooldown = 15  # Cooldown frames
-
-                            await ws.send_text(json.dumps({
-                                "type": "prediction",
-                                "letter": best_word,  # display prediction overlay
-                                "confidence": best_prob,
-                                "hand_detected": hands_detected,
-                                "word": best_word,
-                                "sentence": text_builder.get_full_text(),
-                                "timestamp": time.time(),
-                            }))
+                        landmark_buffer = [] # Reset
                     else:
-                        # Buffering frames
-                        await ws.send_text(json.dumps({
-                            "type": "prediction",
-                            "letter": "",
-                            "confidence": 0.0,
-                            "hand_detected": hands_detected,
-                            "word": f"Buffering... ({len(landmark_buffer)}/90)",
-                            "sentence": text_builder.get_full_text(),
-                            "timestamp": time.time(),
-                        }))
+                        # Brief tracking loss/grace period: keep accumulating
+                        if len(landmark_buffer) > 0:
+                            landmark_buffer.append(features)
+                            await ws.send_text(json.dumps({
+                                "type": "prediction",
+                                "letter": "",
+                                "confidence": 0.0,
+                                "hand_detected": False,
+                                "word": f"Signing... ({len(landmark_buffer)} frames)",
+                                "sentence": text_builder.get_full_text(),
+                                "timestamp": time.time(),
+                            }))
 
             # ---------- Command message ----------
             elif msg.get("type") == "command":
