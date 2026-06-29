@@ -6,7 +6,7 @@ fastapi
 uvicorn[standard]
 websockets
 keras>=3.3.0
-jax>=0.4.30
-jaxlib>=0.4.30
+jax>=0.6.2
+jaxlib>=0.6.2
 azure-cognitiveservices-speech
 python-dotenv
