@@ -8,3 +8,5 @@ websockets
 keras>=3.3.0
 jax>=0.4.30
 jaxlib>=0.4.30
+azure-cognitiveservices-speech
+python-dotenv
