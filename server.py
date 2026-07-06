@@ -106,7 +106,7 @@ def extract_request_landmarks(frame: FrameLandmarks) -> np.ndarray:
     lh = []
     if lh_raw and len(lh_raw) == 21:
         for lm in lh_raw:
-            pose.extend([lm.x, lm.y, lm.z])
+            lh.extend([lm.x, lm.y, lm.z])
     else:
         lh = [0] * 63
 
@@ -114,7 +114,7 @@ def extract_request_landmarks(frame: FrameLandmarks) -> np.ndarray:
     rh = []
     if rh_raw and len(rh_raw) == 21:
         for lm in rh_raw:
-            pose.extend([lm.x, lm.y, lm.z])
+            rh.extend([lm.x, lm.y, lm.z])
     else:
         rh = [0] * 63
 
