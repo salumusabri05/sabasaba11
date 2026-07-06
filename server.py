@@ -259,8 +259,8 @@ async def websocket_endpoint(ws: WebSocket):
                         }))
                 else:
                     no_hand_counter += 1
-                    if no_hand_counter >= 8:
-                        if len(landmark_buffer) >= 10:
+                    if no_hand_counter >= 2:
+                        if len(landmark_buffer) >= 5:
                             print(f"[WS] Hand dropped. Running prediction on sequence of length {len(landmark_buffer)} frames...")
                             pred_probs = predictor.predict_sequence(landmark_buffer)
                             top_indices = np.argsort(pred_probs)[::-1]
@@ -297,9 +297,9 @@ async def websocket_endpoint(ws: WebSocket):
                             }))
                         landmark_buffer = [] # Reset
                     else:
-                        # Brief tracking loss/grace period: keep accumulating
+                        # Brief tracking loss/grace period: report status but do NOT append
+                        # empty hand features to landmark_buffer to avoid polluting the data
                         if len(landmark_buffer) > 0:
-                            landmark_buffer.append(features)
                             await ws.send_text(json.dumps({
                                 "type": "prediction",
                                 "letter": "",
