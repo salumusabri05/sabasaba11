@@ -1,0 +1,73 @@
+stages:
+  - deploy
+
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  before_script:
+    - echo "Setting up SSH key for VPS deployment..."
+    - apk add --no-cache openssh-client bash
+    - eval $(ssh-agent -s)
+    # Support both Base64-encoded key and raw SSH key
+    - |
+      if [ -n "$SSH_PRIVATE_KEY_B64" ]; then
+        echo "$SSH_PRIVATE_KEY_B64" | base64 -d | tr -d '\r' | ssh-add -
+      elif [ -n "$SSH_PRIVATE_KEY" ]; then
+        echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+      else
+        echo "ERROR: Neither SSH_PRIVATE_KEY_B64 nor SSH_PRIVATE_KEY is set in GitLab CI/CD variables!"
+        exit 1
+      fi
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -H "${SERVER_IP:-169.58.79.218}" >> ~/.ssh/known_hosts || true
+    - echo "StrictHostKeyChecking no" >> ~/.ssh/config
+  script:
+    - echo "Deploying MAKISATU to ${SERVER_USER:-root}@${SERVER_IP:-169.58.79.218}:/var/www/makisatu..."
+    - |
+      ssh ${SERVER_USER:-root}@${SERVER_IP:-169.58.79.218} "bash -s" << 'EOF'
+        set -e
+        TARGET_DIR="/var/www/makisatu"
+        
+        echo "=== 1. Navigating to project directory: $TARGET_DIR ==="
+        cd $TARGET_DIR
+
+        echo "=== 2. Pulling latest code ==="
+        git fetch --all
+        git reset --hard origin/master
+
+        echo "=== 3. Activating Python virtual environment & installing dependencies ==="
+        if [ -d "venv" ]; then
+          source venv/bin/activate
+        else
+          echo "ERROR: Virtual environment not found at $TARGET_DIR/venv"
+          exit 1
+        fi
+        
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+        echo "=== 4. Verifying machine learning model file ==="
+        if [ -f "model/tsl_word_model_11.h5" ]; then
+          echo "CONFIRMED: 'model/tsl_word_model_11.h5' exists."
+        else
+          echo "WARNING: 'model/tsl_word_model_11.h5' missing! Ensure model is uploaded to $TARGET_DIR/model/"
+        fi
+
+        echo "=== 5. Restarting process with PM2 ==="
+        if pm2 list | grep -q "makisatu-api"; then
+          echo "Restarting active PM2 process 'makisatu-api'..."
+          pm2 restart makisatu-api
+        else
+          echo "Starting new PM2 process 'makisatu-api'..."
+          pm2 start venv/bin/python3 --name "makisatu-api" --interpreter none -- -m uvicorn server:app --host 0.0.0.0 --port 5004
+        fi
+
+        echo "=== 6. Saving PM2 process list ==="
+        pm2 save
+
+        echo "=== Deployment Completed Successfully! ==="
+      EOF

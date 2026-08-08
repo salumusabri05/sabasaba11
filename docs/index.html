@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAKISATU API Technical Documentation</title>
+    <!-- Bootstrap 5.3.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #ffffff;
+            color: #212529;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            border-right: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+            padding-top: 1.5rem;
+        }
+        .sidebar .nav-link {
+            color: #495057;
+            font-weight: 500;
+            padding: 0.4rem 1rem;
+            font-size: 0.875rem;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: #0d6efd;
+            background-color: #e9ecef;
+            border-radius: 0.25rem;
+        }
+        .sidebar-heading {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: .08rem;
+            font-weight: 700;
+            color: #6c757d;
+            padding: 0.5rem 1rem 0.25rem;
+        }
+        main {
+            padding: 2rem;
+        }
+        h1, h2, h3, h4 {
+            color: #1a1e21;
+            font-weight: 600;
+        }
+        h1 { border-bottom: 2px solid #212529; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+        h2 { border-bottom: 1px solid #dee2e6; padding-bottom: 0.4rem; margin-top: 2rem; margin-bottom: 1rem; }
+        pre, code {
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.875rem;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            color: #212529;
+        }
+        .badge-endpoint {
+            font-family: monospace;
+            font-size: 0.8rem;
+            padding: 0.3em 0.6em;
+        }
+        .table-sm td, .table-sm th {
+            padding: 0.4rem 0.6rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar Navigation -->
+        <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <div class="position-sticky">
+                <div class="px-3 mb-3">
+                    <h6 class="fw-bold mb-0">MAKISATU API</h6>
+                    <small class="text-muted">Technical Reference v1.1</small>
+                </div>
+                <ul class="nav flex-column mb-3">
+                    <li class="nav-item"><a class="nav-link active" href="#overview">1. System Overview</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#pipeline">2. Feature Pipeline</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#preprocessing">3. Frame Preprocessing</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#websocket">4. WebSocket Protocol</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#rest-api">5. REST API Reference</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#model-specs">6. Machine Learning Model</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#deployment">7. Infrastructure & CI/CD</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">MAKISATU — Technical System Documentation</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <span class="badge bg-secondary align-self-center">FastAPI + MediaPipe + Keras</span>
+                </div>
+            </div>
+
+            <!-- Section 1: Overview -->
+            <section id="overview">
+                <h2>1. System Overview</h2>
+                <p>
+                    <strong>MAKISATU (Bridging Silence)</strong> is a low-latency machine learning backend server for real-time Tanzanian Sign Language (TSL) recognition. 
+                    It ingests compressed video streams via WebSockets or landmark feature sequences via REST, normalizes spatial orientation, processes temporal sequences using MediaPipe Holistic, and classifies gestures into Swahili words.
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Component</th>
+                                <th>Specification</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Framework</td>
+                                <td>FastAPI (Python 3.10)</td>
+                                <td>Asynchronous web application framework running on Uvicorn.</td>
+                            </tr>
+                            <tr>
+                                <td>Inference Engine</td>
+                                <td>Keras 3 (JAX CPU Backend)</td>
+                                <td>Lightweight CPU execution backend avoiding GPU hardware lock-in.</td>
+                            </tr>
+                            <tr>
+                                <td>Vision Pipeline</td>
+                                <td>MediaPipe Holistic v0.10.14</td>
+                                <td>Extracts 141 normalized 3D coordinate landmarks per frame.</td>
+                            </tr>
+                            <tr>
+                                <td>Audio Synthesis</td>
+                                <td>Azure Speech SDK</td>
+                                <td>Synthesizes Swahili speech (`sw-KE-ZuriNeural`) for translated sentences.</td>
+                            </tr>
+                            <tr>
+                                <td>Process Manager</td>
+                                <td>PM2 (`makisatu-api`)</td>
+                                <td>Manages backend process lifecycle on VPS port `5004`.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Section 2: Feature Pipeline -->
+            <section id="pipeline">
+                <h2>2. Feature Pipeline Specification</h2>
+                <p>
+                    Every video frame is transformed into a <strong>141-dimensional floating-point vector</strong> representing normalized 3D spatial landmarks $(x, y, z)$.
+                </p>
+                <div class="card mb-3">
+                    <div class="card-header fw-bold bg-light">Vector Index Layout (Total Size: 141 Floats)</div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Segment</th>
+                                    <th>Index Range</th>
+                                    <th>Float Count</th>
+                                    <th>Landmarks Covered</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Pose Landmarks</strong></td>
+                                    <td><code>[0 : 15]</code></td>
+                                    <td>15 floats</td>
+                                    <td>5 key points: Nose (0), Left Shoulder (11), Right Shoulder (12), Left Elbow (13), Right Elbow (14)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Left Hand Landmarks</strong></td>
+                                    <td><code>[15 : 78]</code></td>
+                                    <td>63 floats</td>
+                                    <td>21 3D points $(x, y, z)$ for wrist, thumb, index, middle, ring, pinky joints</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Right Hand Landmarks</strong></td>
+                                    <td><code>[78 : 141]</code></td>
+                                    <td>63 floats</td>
+                                    <td>21 3D points $(x, y, z)$ for wrist, thumb, index, middle, ring, pinky joints</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 3: Preprocessing -->
+            <section id="preprocessing">
+                <h2>3. Frame Preprocessing & Spatial Normalization</h2>
+                <p>
+                    To maintain camera-agnostic accuracy across varying mobile devices, the class <code>FramePreprocessor</code> in <code>pipeline.py</code> performs three deterministic corrections:
+                </p>
+                <ol>
+                    <li><strong>Rotation Correction:</strong> Rotates incoming OpenCV frames by $0^\circ, 90^\circ, 180^\circ,$ or $270^\circ$ depending on client camera sensor orientation.</li>
+                    <li><strong>Mirror Adjustment:</strong> Applies horizontal flip for front-facing user cameras to preserve natural UX spatial alignment.</li>
+                    <li><strong>Aspect Ratio Normalization:</strong> Pads non-standard client resolutions to a strict $4:3$ landscape aspect ratio with border padding before passing to MediaPipe.</li>
+                    <li><strong>Body-Relative Coordinate Scaling:</strong> Centers landmarks relative to the midpoint of the shoulders and divides all coordinates by the shoulder distance $\text{dist}(\text{shoulder}_{\text{left}}, \text{shoulder}_{\text{right}})$.</li>
+                </ol>
+            </section>
+
+            <!-- Section 4: WebSocket Protocol -->
+            <section id="websocket">
+                <h2>4. WebSocket API Protocol (`/ws`)</h2>
+                <p>
+                    The client establishes a persistent connection to <code>wss://model.bridgingsilence.org/ws</code>. 
+                    Client sends JSON frames or control commands at **10 FPS (100ms interval)**.
+                </p>
+
+                <h4>A. Client → Server: Frame Streaming Payload</h4>
+                <pre><code>{
+  "type": "frame",
+  "frame": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...",
+  "threshold": 0.70,
+  "camera": {
+    "facing": "user",
+    "rotation": 270,
+    "mirrored": true,
+    "width": 640,
+    "height": 480
+  }
+}</code></pre>
+
+                <h4>B. Client → Server: Control Commands Payload</h4>
+                <pre><code>{
+  "type": "command",
+  "command": "clear" // Supported: "clear", "delete_word", "delete_letter", "speak"
+}</code></pre>
+
+                <h4>C. Server → Client: Prediction Response Payload</h4>
+                <pre><code>{
+  "type": "prediction",
+  "letter": "HABARI",
+  "confidence": 0.9412,
+  "hand_detected": true,
+  "word": "HABARI",
+  "sentence": "HABARI YAKO",
+  "timestamp": 1723145690.12
+}</code></pre>
+
+                <h4>D. Server → Client: TTS Audio Response Payload (Command: "speak")</h4>
+                <pre><code>{
+  "type": "speak",
+  "text": "HABARI YAKO",
+  "audio": "UklGRiQAAABXQVZFZm10I..." // Base64 encoded WAV audio bytes
+}</code></pre>
+            </section>
+
+            <!-- Section 5: REST API Reference -->
+            <section id="rest-api">
+                <h2>5. REST API Reference</h2>
+                <div class="mb-4">
+                    <span class="badge bg-success badge-endpoint">POST</span> <code>/predict</code>
+                    <p class="mt-2">Evaluates raw 141-float feature vectors or sequence objects directly without Base64 image encoding overhead.</p>
+                    
+                    <h5>Request Body Schema</h5>
+                    <pre><code>{
+  "features": [
+    [0.12, 0.45, -0.1, ... 141 floats ...],
+    [0.14, 0.44, -0.1, ... 141 floats ...]
+  ],
+  "threshold": 0.70
+}</code></pre>
+
+                    <h5>Success Response (200 OK)</h5>
+                    <pre><code>{
+  "prediction": "ASUBUHI",
+  "probability": 0.9654,
+  "top_predictions": [
+    { "word": "ASUBUHI", "probability": 0.9654 },
+    { "word": "HABARI", "probability": 0.0210 },
+    { "word": "SHIKAMOO", "probability": 0.0085 }
+  ],
+  "sequence_length": 45
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- Section 6: Machine Learning Model -->
+            <section id="model-specs">
+                <h2>6. Machine Learning Model Specifications</h2>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Attribute</th>
+                                <th>Specification</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Model File</td>
+                                <td><code>model/tsl_word_model_11.h5</code></td>
+                            </tr>
+                            <tr>
+                                <td>Input Tensor Shape</td>
+                                <td><code>(BatchSize, 90, 141)</code> — 90 temporal frames of 141 features</td>
+                            </tr>
+                            <tr>
+                                <td>Output Layer</td>
+                                <td>11-class Softmax probability distribution</td>
+                            </tr>
+                            <tr>
+                                <td>Vocabulary Classes</td>
+                                <td>
+                                    <code>ALAMA</code>, <code>ASUBUHI</code>, <code>HABARI</code>, 
+                                    <code>JINA</code>, <code>JIONI</code>, <code>KUJITAMBULISHA</code>, 
+                                    <code>LANGU</code>, <code>LUGHA</code>, <code>MCHANA</code>, 
+                                    <code>SHIKAMOO</code>, <code>YAKO</code>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Sequence Standardizer</td>
+                                <td>Temporal linear sampling for long sequences (&gt;90), zero padding for short sequences (&lt;90).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Section 7: Deployment & CI/CD -->
+            <section id="deployment" class="mb-5">
+                <h2>7. Infrastructure & CI/CD Specification</h2>
+                
+                <h5>Server Environment</h5>
+                <ul>
+                    <li><strong>Provider:</strong> Contabo VPS (Ubuntu 24.04 LTS) — IP: <code>169.58.79.218</code></li>
+                    <li><strong>Deployment Root:</strong> <code>/var/www/makisatu</code></li>
+                    <li><strong>Runtime:</strong> Python 3.10 (via deadsnakes PPA) with virtualenv at <code>/var/www/makisatu/venv</code></li>
+                    <li><strong>Domain & SSL:</strong> <code>model.bridgingsilence.org</code> (Let's Encrypt SSL via Certbot)</li>
+                </ul>
+
+                <h5>PM2 Execution Command</h5>
+                <pre><code>pm2 start venv/bin/python3 --name "makisatu-api" --interpreter none -- -m uvicorn server:app --host 0.0.0.0 --port 5004</code></pre>
+
+                <h5>Nginx Proxy WebSocket Timeout Configuration</h5>
+                <pre><code>location / {
+    proxy_pass http://127.0.0.1:5004;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "Upgrade";
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+}</code></pre>
+
+                <h5>Automated Deployment Workflow</h5>
+                <p>Managed automatically by <code>.gitlab-ci.yml</code> upon code pushes to <code>master</code> branch.</p>
+            </section>
+
+        </main>
+    </div>
+</div>
+
+<!-- Bootstrap 5.3.3 Bundle JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
