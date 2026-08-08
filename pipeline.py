@@ -218,10 +218,19 @@ class LetterPredictor:
         self.model = None
         self.classes = []
         if os.path.exists(model_path):
+            data = None
             try:
-                import pickle
-                with open(model_path, "rb") as f:
-                    data = pickle.load(f)
+                import joblib
+                data = joblib.load(model_path)
+            except Exception as e_joblib:
+                try:
+                    import pickle
+                    with open(model_path, "rb") as f:
+                        data = pickle.load(f)
+                except Exception as e_pickle:
+                    print(f"[LetterPredictor] Failed to load letter model with joblib ({e_joblib}) and pickle ({e_pickle})")
+
+            if data is not None:
                 if hasattr(data, "predict"):
                     self.model = data
                     if hasattr(data, "classes_"):
@@ -230,8 +239,6 @@ class LetterPredictor:
                     self.model = data.get("model")
                     self.classes = [str(c) for c in data.get("classes", [])]
                 print(f"[LetterPredictor] Loaded model from {model_path} with {len(self.classes)} classes.")
-            except Exception as e:
-                print(f"[LetterPredictor] Failed to load letter model: {e}")
 
     def predict_frame(self, hand_features: np.ndarray) -> tuple:
         """
