@@ -40,9 +40,10 @@ deploy_production:
         echo "=== 1. Navigating to project directory: $TARGET_DIR ==="
         cd $TARGET_DIR
 
-        echo "=== 2. Pulling latest code ==="
+        echo "=== 2. Pulling latest code for branch: ${CI_COMMIT_BRANCH:-main} ==="
         git fetch --all
-        git reset --hard origin/master
+        git checkout ${CI_COMMIT_BRANCH:-main}
+        git reset --hard origin/${CI_COMMIT_BRANCH:-main}
 
         echo "=== 3. Activating Python virtual environment & installing dependencies ==="
         if [ -d "venv" ]; then
