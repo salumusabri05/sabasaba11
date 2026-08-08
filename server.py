@@ -126,6 +126,14 @@ def extract_request_landmarks(frame: FrameLandmarks) -> np.ndarray:
 async def root():
     return FileResponse(os.path.join(static_dir, "index.html"))
 
+@app.get("/documentation")
+@app.get("/docs-site")
+async def get_documentation():
+    docs_path = os.path.join(os.path.dirname(__file__), "docs", "index.html")
+    if os.path.exists(docs_path):
+        return FileResponse(docs_path)
+    raise HTTPException(status_code=404, detail="Documentation file not found.")
+
 @app.post("/predict", response_model=PredictResponse)
 async def predict_api(request: PredictRequest):
     features_list = []
