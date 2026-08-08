@@ -64,18 +64,21 @@ Avoid sending at standard 30 FPS to prevent network congestion.
 ---
 
 ### B. Sending a Control Command (Client → Server)
-Send these commands to control the server's internal text builder:
+Send these commands to control recognition modes and text builder state:
 
 ```json
 {
   "type": "command",
-  "command": "clear"
+  "command": "set_mode",
+  "mode": "letter"
 }
 ```
 * **Supported Commands:**
+  * `"set_mode"` (or `"mode"`): Sets active mode (`mode: "word"` or `mode: "letter"`).
   * `"clear"`: Resets the entire accumulated text sentence.
-  * `"delete"`: Deletes the last character in the active sentence.
-  * `"speak"`: Tells the server to prepare or trigger TTS.
+  * `"delete_letter"`: Deletes the last character in the active sentence.
+  * `"delete_word"`: Deletes the last word in the active sentence.
+  * `"speak"`: Tells the server to prepare or trigger Azure TTS speech audio.
 
 ---
 
@@ -84,19 +87,23 @@ The server responds to every frame and command with this format:
 
 ```json
 {
-  "status": "success",
+  "type": "prediction",
   "letter": "A",
+  "word": "JINA",
   "confidence": 0.94,
-  "accumulated_text": "HELLO WORLD",
-  "hand_detected": true
+  "sentence": "JINA A",
+  "hand_detected": true,
+  "timestamp": 1786220554.8
 }
 ```
 
 #### Field Specifications:
-* `letter`: The currently predicted gesture/letter (returns `null` if no hand is detected).
-* `confidence`: The model's confidence value between `0.0` and `1.0`.
-* `accumulated_text`: The current sentence compiled so far.
-* `hand_detected`: Boolean indicating if MediaPipe has successfully tracked a hand in the frame.
+* `type`: Always `"prediction"` or `"state_update"`.
+* `letter`: The single predicted letter (in Letter Mode or single-character words).
+* `word`: The currently recognized Swahili word (in Word Mode).
+* `confidence`: The model's confidence probability between `0.0` and `1.0`.
+* `sentence`: The full compiled sentence so far.
+* `hand_detected`: Boolean indicating if MediaPipe tracked a hand in the frame.
 
 ---
 
