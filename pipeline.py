@@ -210,30 +210,94 @@ class SignPredictor:
         pred_probs = self.model.predict(input_data, verbose=0)[0]
         return pred_probs
 
+class LetterPredictor:
+    """Predicts static sign language letters (fingerspelling) using mlp_tsl_static.pkl."""
+
+    def __init__(self, model_path: str):
+        import os
+        self.model = None
+        self.classes = []
+        if os.path.exists(model_path):
+            try:
+                import pickle
+                with open(model_path, "rb") as f:
+                    data = pickle.load(f)
+                if hasattr(data, "predict"):
+                    self.model = data
+                    if hasattr(data, "classes_"):
+                        self.classes = [str(c) for c in data.classes_]
+                elif isinstance(data, dict):
+                    self.model = data.get("model")
+                    self.classes = [str(c) for c in data.get("classes", [])]
+                print(f"[LetterPredictor] Loaded model from {model_path} with {len(self.classes)} classes.")
+            except Exception as e:
+                print(f"[LetterPredictor] Failed to load letter model: {e}")
+
+    def predict_frame(self, hand_features: np.ndarray) -> tuple:
+        """
+        Given extracted feature vector, predict single letter and confidence.
+        """
+        if self.model is None:
+            return "", 0.0
+
+        try:
+            feat = hand_features.reshape(1, -1)
+            if hasattr(self.model, "n_features_in_"):
+                expected_dim = self.model.n_features_in_
+                if feat.shape[1] > expected_dim:
+                    feat = feat[:, :expected_dim]
+                elif feat.shape[1] < expected_dim:
+                    feat = np.pad(feat, ((0, 0), (0, expected_dim - feat.shape[1])))
+
+            if hasattr(self.model, "predict_proba"):
+                probs = self.model.predict_proba(feat)[0]
+                best_idx = np.argmax(probs)
+                confidence = float(probs[best_idx])
+            else:
+                pred = self.model.predict(feat)[0]
+                return str(pred), 1.0
+
+            letter = self.classes[best_idx] if best_idx < len(self.classes) else ""
+            return letter, confidence
+        except Exception as e:
+            print(f"[LetterPredictor] Prediction error: {e}")
+            return "", 0.0
+
+
 class TextBuilder:
-    """Manages Swahili word-based sentence translation logs and state."""
+    """Manages Swahili word-based and letter-based sentence translation logs and state."""
 
     def __init__(self):
         self.sentence = ""
 
     def add_word(self, word: str):
+        if not word:
+            return
         if not self.sentence:
             self.sentence = word
         else:
             self.sentence += " " + word
 
+    def add_letter(self, letter: str):
+        if not letter:
+            return
+        self.sentence += letter
+
     def delete_letter(self):
-        # Maps backspace action to removing the last word in a word-based model
-        self.delete_word()
+        if self.sentence:
+            self.sentence = self.sentence[:-1]
 
     def delete_word(self):
         if self.sentence:
             words = self.sentence.strip().split()
             if words:
                 self.sentence = " ".join(words[:-1])
+            else:
+                self.sentence = ""
 
     def clear(self):
         self.sentence = ""
 
     def get_full_text(self) -> str:
         return self.sentence.strip()
+
