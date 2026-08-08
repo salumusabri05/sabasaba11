@@ -43,12 +43,14 @@ deploy_production:
         if [ -d "venv" ]; then
           source venv/bin/activate
         else
-          echo "ERROR: Virtual environment not found at $TARGET_DIR/venv"
-          exit 1
+          echo "Creating virtual environment at $TARGET_DIR/venv..."
+          python3.10 -m venv venv || python3 -m venv venv
+          source venv/bin/activate
         fi
         
-        pip install --upgrade pip
-        pip install -r requirements.txt
+        # Use direct venv python binary path to execute pip module reliably
+        venv/bin/python3 -m pip install --upgrade pip
+        venv/bin/python3 -m pip install -r requirements.txt
 
         echo "=== 4. Verifying machine learning model file ==="
         if [ -f "model/tsl_word_model_11.h5" ]; then
